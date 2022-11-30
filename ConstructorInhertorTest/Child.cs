@@ -7,6 +7,6 @@ namespace ConstructorInhertorTest
     {
         //public Child() { Console.WriteLine("Foo"); }
 
-        public Child(ref string name) { Console.WriteLine(name); }
+//        public Child(string name) { Console.WriteLine(name); }
     }
 }

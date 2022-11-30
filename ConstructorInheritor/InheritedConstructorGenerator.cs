@@ -129,7 +129,16 @@ namespace {typeSymbol.ContainingNamespace}
         }
 
         private string GenerateParameterReferences(ImmutableArray<IParameterSymbol> parameters)
-            => string.Join(", ", from p in parameters select p.Name);
+            => string.Join(", ", from p in parameters select GenerateRefKind(p.RefKind) + p.Name);
+
+        private string GenerateRefKind(RefKind refKind) => refKind switch
+        {
+            RefKind.None => "",
+            RefKind.Ref => "ref ",
+            RefKind.Out => "out ",
+            RefKind.RefReadOnly => "ref readonly",
+            _ => throw new ArgumentException("Unknown RefKind value", nameof(refKind)),
+        };
 
         private string GenerateParameterDeclarations(IEnumerable<IParameterSymbol> parameters)
             => string.Join(", ", from p in parameters
