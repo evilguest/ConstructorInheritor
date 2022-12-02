@@ -2,28 +2,27 @@
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
+
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 
-namespace ConstructorInheritor
+namespace Constructor.Inheritor
 {
     [Generator]
     public class InheritedConstructorGenerator : ISourceGenerator
     {
-        private const string attributeText = @"
-using System;
-namespace ConstructorInheritor
-{
+        private const string AttributeName = "InheritConstructorsAttribute";
+        private static string AttributeText => @$"using System;
+namespace {typeof(InheritedConstructorGenerator).Namespace}
+{{
     [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
-    sealed class InheritConstructorsAttribute : Attribute
-    {
-    }
-}
+    sealed class {AttributeName} : Attribute {{}}
+}}
 ";
-        private static SourceText AttributeSource => SourceText.From(attributeText, Encoding.UTF8);
+        private static SourceText AttributeSource => SourceText.From(AttributeText, Encoding.UTF8);
 
         public void Execute(GeneratorExecutionContext context)
         {
@@ -35,34 +34,37 @@ namespace ConstructorInheritor
             var options = (context.Compilation as CSharpCompilation).SyntaxTrees[0].Options as CSharpParseOptions;
             var compilation = context.Compilation.AddSyntaxTrees(CSharpSyntaxTree.ParseText(AttributeSource, options));
 
-            INamedTypeSymbol attributeSymbol = compilation.GetTypeByMetadataName("ConstructorInheritor.InheritConstructorsAttribute");
+            INamedTypeSymbol attributeSymbol = compilation.GetTypeByMetadataName(QualifiedAttributeName);
 
-            foreach(var classDeclaration in receiver.CandidateClasses)
+            foreach (var classDeclaration in receiver.CandidateClasses)
             {
                 var semanticModel = compilation.GetSemanticModel(classDeclaration.SyntaxTree);
                 var symbol = semanticModel.GetDeclaredSymbol(classDeclaration);
-                if (symbol is ITypeSymbol classSymbol && classSymbol.IsReferenceType
-                                    && classSymbol.GetAttributes().Any(ad => ad.AttributeClass.Equals(attributeSymbol, SymbolEqualityComparer.Default)))
-                {
-                    if (!classDeclaration.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))
-                    {
-                        context.ReportDiagnostic(Diagnostic.Create(CreateMissingPartialDescriptor(), classDeclaration. GetLocation(), classSymbol.Name));
-                    }
-                    else
-                    {
+                if (symbol is ITypeSymbol classSymbol
+                    && classSymbol.IsReferenceType
+                    && classSymbol.IsMarkedWithAttribute(attributeSymbol))
 
+                {
+                    if (classDeclaration.IsPartial())
+                    {
                         var source = GenerateInheritedConstructors(classSymbol);
                         if (source != null)
                             context.AddSource($"{ToFileName(classSymbol)}.Constructors.cs", SourceText.From(source, Encoding.UTF8));
                     }
+                    //else
+                    //    context.ReportDiagnostic(Diagnostic.Create(Rule, classSymbol.Locations.First(), classSymbol.Locations.Skip(1), classSymbol.Name));
                 }
             }
         }
+
+
+        public static string QualifiedAttributeName => typeof(InheritedConstructorGenerator).Namespace + "." + AttributeName;
 
         private static readonly SymbolDisplayFormat format = new SymbolDisplayFormat(
                             typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
                             genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters);
         private static string ToFileName(ITypeSymbol classSymbol) => classSymbol.ToDisplayString(format).Replace('<', '(').Replace('>', ')');
+
 
         private string GenerateInheritedConstructors(ITypeSymbol typeSymbol)
         {
@@ -135,14 +137,16 @@ namespace {typeSymbol.ContainingNamespace}
             _ => throw new InvalidOperationException($"Unknown accessibility type: {declaredAccessibility}"),
         };
 
+        public const string DiagnosticId = "Constructor.Inheritor";
+
+        private static readonly LocalizableString Title = new LocalizableResourceString(nameof(Resources.AnalyzerTitle), Resources.ResourceManager, typeof(Resources));
+        private static readonly LocalizableString MessageFormat = new LocalizableResourceString(nameof(Resources.AnalyzerMessageFormat), Resources.ResourceManager, typeof(Resources));
+        private static readonly LocalizableString Description = new LocalizableResourceString(nameof(Resources.AnalyzerDescription), Resources.ResourceManager, typeof(Resources));
+        private const string Category = "Naming";
+        internal static readonly DiagnosticDescriptor Rule = new DiagnosticDescriptor(DiagnosticId, Title, MessageFormat, Category, DiagnosticSeverity.Error, isEnabledByDefault: true, description: Description);
+
         public void Initialize(GeneratorInitializationContext context) 
             => context.RegisterForSyntaxNotifications(() => new SyntaxReceiver());
-        private static DiagnosticDescriptor CreateMissingPartialDescriptor() 
-            => new DiagnosticDescriptor(
-                "CACI0001",
-                "The class marked with IheritConstructors attribute must be marked as partial",
-                "Add 'partial' modifier to {0} to allow automatic parent constructors inheritance",
-                "Constructor.Inheritance", DiagnosticSeverity.Error, true);
 
         class SyntaxReceiver : ISyntaxReceiver
         {

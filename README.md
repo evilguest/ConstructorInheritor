@@ -1,4 +1,4 @@
-# ConstructorInheritor
+# Constructor.Inheritor
 Simple Source Generator that automatically duplicates all the base class constructors in the class of your choice.
 
 The following code sample tells the most of it:
@@ -12,7 +12,7 @@ public class Parent
 
 ...
 
-using ConstructorInheritor;
+using Constructor.Inheritor;
 
   [InheritConstructors]
   internal partial class Child: Parent

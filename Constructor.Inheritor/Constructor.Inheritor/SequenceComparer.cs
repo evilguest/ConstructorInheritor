@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 
-namespace ConstructorInheritor
+namespace Constructor.Inheritor
 {
     internal class SequenceComparer<T> : IEqualityComparer<IEnumerable<T>>
     {

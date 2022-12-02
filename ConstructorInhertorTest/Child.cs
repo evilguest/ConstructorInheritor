@@ -9,4 +9,8 @@ namespace ConstructorInhertorTest
 
 //        public Child(string name) { Console.WriteLine(name); }
     }
+    [InheritConstructors]
+    public partial class Child<T>: Parent<T> { }
+
+
 }
